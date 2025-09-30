@@ -1,4 +1,4 @@
-# LFM
+# Lesion foundation model (LFM) 
 
 [Workflow](https://github.com/xiawei999000/LFM/blob/main/workflow.jpg)<br>
 <img src="https://github.com/xiawei999000/LFM/blob/main/workflow.jpg" alt="Workflow" width="700"/>
