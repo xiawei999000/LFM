@@ -7,9 +7,9 @@
 
 [a. Self-supervised pre-training of LFM](https://github.com/xiawei999000/LFM/blob/main/LFM_pretraining/pretraining.py)<br>
 
- &ensp; &ensp;[Pretraining data and weights of LFM]()<br>
-
 [b. Downstream adaptation with attention-based multiple instance learning](https://github.com/xiawei999000/LFM/blob/main/FusionPhase_FM_ABMIL.py)<br>
 
-
 [c. Biomarker discovery via principal component analysis](https://github.com/xiawei999000/LFM/blob/main/PCA/PCA_visualization.py)<br>
+
+# Source data:<br>
+[Lesion patches from DeepLesion dataset used for LFM pretraining and Model weights of LFM]()<br>
