@@ -30,16 +30,16 @@ def apply_window(image, WL, WW):
     image_windowed = np.clip((image - window_min) / (window_max - window_min), 0, 1) * 255
     return image_windowed.astype(np.uint8)
 
-def foreground_obtain(pca_features_bg):
-    pca_bg_thresh = 0
+def salient_obtain(pca_features_ns):
+    pca_ns_thresh = 0
 
-    foreground = pca_features_bg > pca_bg_thresh
+    salient = pca_features_ns > pca_ns_thresh
 
-    foreground = np.squeeze(foreground)
+    salient = np.squeeze(salient)
 
-    return foreground
+    return salient
 
-def PCA_visualization(image, pca, pca_foreground, backbone):
+def PCA_visualization(image, pca, pca_salient, backbone):
 
     p_patch = T.ToTensor()(image)
     p_patch = p_patch.unsqueeze(0)
@@ -59,14 +59,14 @@ def PCA_visualization(image, pca, pca_foreground, backbone):
     resized_pca_nc_embeddings_array_zeros = np.zeros((128, 128, 3), dtype=np.uint8)
     resized_pca_nc_embeddings_img_flipped = Image.fromarray(resized_pca_nc_embeddings_array_zeros, mode='RGB')
 
-    # remove the background
-    pca_features_bg = pca_features_all[:, 0]
+    # remove the non-salient patches
+    pca_features_ns = pca_features_all[:, 0]
 
-    foreground = foreground_obtain(pca_features_bg)
+    salient = salient_obtain(pca_features_ns)
 
-    if np.count_nonzero(foreground) != 0:
+    if np.count_nonzero(salient) != 0:
 
-        pca_features = pca_foreground.transform(patch_embeddings[foreground])
+        pca_features = pca_salient.transform(patch_embeddings[salient])
 
         pca_features_1 = pca_features[:, 0]
 
@@ -74,13 +74,13 @@ def PCA_visualization(image, pca, pca_foreground, backbone):
 
         pca_features_3 = pca_features[:, 2]
 
-        pca_features_foreground = np.stack(
+        pca_features_salient = np.stack(
             (pca_features_1, pca_features_2, pca_features_3), axis=-1)
 
-        background = ~foreground
+        non_salient = ~salient
         pca_embeddings_img = pca_features_all
-        pca_embeddings_img[background] = 0
-        pca_embeddings_img[foreground] = pca_features_foreground
+        pca_embeddings_img[non_salient] = 0
+        pca_embeddings_img[salient] = pca_features_salient
 
         pca_embeddings_img = pca_embeddings_img.reshape(16, 16, 3)
 
@@ -134,16 +134,16 @@ def PCA_key_patches(patch_ori_list, backbone):
     # pca
     pca_features = pca.transform(patches_embeddings_all)
 
-    # remove the background
-    pca_features_bg = pca_features[:, 0]
+    # remove the non-salient patches
+    pca_features_1st_component = pca_features[:, 0]
 
-    foreground = foreground_obtain(pca_features_bg)
+    salient = salient_obtain(pca_features_1st_component)
 
-    # Fit PCA foreground
-    pca_foreground = PCA(n_components=3)
-    pca_foreground.fit(patches_embeddings_all[foreground])
+    # Fit PCA on salient patches
+    pca_salient = PCA(n_components=3)
+    pca_salient.fit(patches_embeddings_all[salient])
 
-    return pca, pca_foreground
+    return pca, pca_salient
 
 
 if __name__ == '__main__':
@@ -248,18 +248,18 @@ if __name__ == '__main__':
     backbone_ap = model_ft.branch_ap
     backbone_pv = model_ft.branch_pv
 
-    # load pca
-    with open(data_folder_path + '/pca_data_exBG.pkl', 'rb') as f:
+    # load fitted pca
+    with open(data_folder_path + '/pca_fitted.pkl', 'rb') as f:
         loaded_data = pickle.load(f)
 
     PCA_nc = loaded_data['PCA_nc']
-    PCA_nc_foreground = loaded_data['PCA_nc_foreground']
+    PCA_nc_salient = loaded_data['PCA_nc_salient']
 
     PCA_ap = loaded_data['PCA_ap']
-    PCA_ap_foreground = loaded_data['PCA_ap_foreground']
+    PCA_ap_salient = loaded_data['PCA_ap_salient']
 
     PCA_pv = loaded_data['PCA_pv']
-    PCA_pv_foreground = loaded_data['PCA_pv_foreground']
+    PCA_pv_salient = loaded_data['PCA_pv_salient']
 
     # save the CT patch and corresponding PCA color map for each patient
     for index in range(0, len(p_key_patches_nc)):
@@ -268,9 +268,9 @@ if __name__ == '__main__':
         p_key_patch_ap = p_key_patches_ap[index]
         p_key_patch_pv = p_key_patches_pv[index]
 
-        CT_ori_nc, PCA_map_nc = PCA_visualization(p_key_patch_nc, PCA_nc, PCA_nc_foreground, backbone_nc)
-        CT_ori_ap, PCA_map_ap = PCA_visualization(p_key_patch_ap, PCA_ap, PCA_ap_foreground, backbone_ap)
-        CT_ori_pv, PCA_map_pv = PCA_visualization(p_key_patch_pv, PCA_pv, PCA_pv_foreground, backbone_pv)
+        CT_ori_nc, PCA_map_nc = PCA_visualization(p_key_patch_nc, PCA_nc, PCA_nc_salient, backbone_nc)
+        CT_ori_ap, PCA_map_ap = PCA_visualization(p_key_patch_ap, PCA_ap, PCA_ap_salient, backbone_ap)
+        CT_ori_pv, PCA_map_pv = PCA_visualization(p_key_patch_pv, PCA_pv, PCA_pv_salient, backbone_pv)
 
         p_key_patch_nc_mask = p_key_patches_nc_mask[index]
         p_key_patch_ap_mask = p_key_patches_ap_mask[index]
