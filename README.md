@@ -12,4 +12,4 @@
 [c. Biomarker discovery via principal component analysis](https://github.com/xiawei999000/LFM/blob/main/PCA/PCA_visualization.py)<br>
 
 # Source data:<br>
-[Lesion patches from DeepLesion dataset used for LFM pretraining and Model weights of LFM]()<br>
+[Lesion patches from DeepLesion dataset used for LFM pretraining and Model weights of LFM](https://zenodo.org/records/17350490)<br>
