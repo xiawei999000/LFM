@@ -19,11 +19,11 @@ from sklearn.decomposition import PCA
 from FusionPhase_FM_ABMIL import Patches_ABMIL, FusionClassifier
 
 
-def foreground_obtain(pca_features_bg):
-    pca_bg_thresh = 0
-    foreground = pca_features_bg > pca_bg_thresh
-    foreground = np.squeeze(foreground)
-    return foreground
+def salient_obtain(pca_features_ns):
+    pca_ns_thresh = 0
+    salient = pca_features_ns > pca_ns_thresh
+    salient = np.squeeze(salient)
+    return salient
 
 def normalize_image(image):
 
@@ -58,19 +58,19 @@ def PCA_key_patches(patch_ori_list, backbone):
     # pca
     pca_features = pca.transform(patches_embeddings_all)
 
-    # remove the background
-    pca_features_bg = pca_features[:, 0]
+    # remove the non-salient patches
+    pca_features_1st_component = pca_features[:, 0]
 
-    foreground = foreground_obtain(pca_features_bg)
+    pca_features_salient = salient_obtain(pca_features_1st_component)
 
-    # Fit PCA foreground
-    pca_foreground = PCA(n_components=3)
-    pca_foreground.fit(patches_embeddings_all[foreground])
+    # Fit PCA on salient patches       
+    pca_salient = PCA(n_components=3)
+    pca_salient.fit(patches_embeddings_all[pca_features_salient])
 
-    return pca, pca_foreground
+    return pca, pca_salient
 
 
-def PCA_component_counts(image, pca, pca_foreground, backbone):
+def PCA_component_counts(image, pca, pca_salient, backbone):
     p_patch = T.ToTensor()(image)
     p_patch = p_patch.unsqueeze(0)
     p_patch = torch.as_tensor(p_patch, dtype=torch.float)
@@ -85,17 +85,17 @@ def PCA_component_counts(image, pca, pca_foreground, backbone):
     # pca
     pca_features = pca.transform(patch_embeddings)
 
-    # remove the background
-    pca_features_bg = pca_features[:, 0]
+    # remove the non-salient patches
+    pca_features_ns = pca_features[:, 0]
 
-    foreground = foreground_obtain(pca_features_bg)
+    salient = salient_obtain(pca_features_ns)
 
-    patch_embeddings_foreground = patch_embeddings[foreground]
+    patch_embeddings_salient = patch_embeddings[salient]
 
     channel_counts = np.zeros(3)
 
-    if len(patch_embeddings_foreground) != 0:
-        pca_features = pca_foreground.transform(patch_embeddings_foreground)
+    if len(patch_embeddings_salient) != 0:
+        pca_features = pca_salient.transform(patch_embeddings_salient)
         max_channel_indices = np.argmax(pca_features, axis=1)
         channel_counts = np.bincount(max_channel_indices.flatten(), minlength=3)
 
@@ -215,9 +215,22 @@ if __name__ == '__main__':
     backbone_pv = model_ft.branch_pv
 
     # fit pca
-    PCA_nc, PCA_nc_foreground = PCA_key_patches(p_key_patches_nc, backbone_nc)
-    PCA_ap, PCA_ap_foreground = PCA_key_patches(p_key_patches_ap, backbone_ap)
-    PCA_pv, PCA_pv_foreground = PCA_key_patches(p_key_patches_pv, backbone_pv)
+    PCA_nc, PCA_nc_salient = PCA_key_patches(p_key_patches_nc, backbone_nc)
+    PCA_ap, PCA_ap_salient = PCA_key_patches(p_key_patches_ap, backbone_ap)
+    PCA_pv, PCA_pv_salient = PCA_key_patches(p_key_patches_pv, backbone_pv)
+
+    # store fitted pca for external use
+    data_to_save = {
+        'PCA_nc': PCA_nc,
+        'PCA_nc_salient': PCA_nc_salient,
+        'PCA_ap': PCA_ap,
+        'PCA_ap_salient': PCA_ap_salient,
+        'PCA_pv': PCA_pv,
+        'PCA_pv_salient': PCA_pv_salient
+    }
+
+    with open(data_folder_path + '/pca_fitted.pkl', 'wb') as f:
+        pickle.dump(data_to_save, f)
 
     # store fractions
     component_fractions_nc_1_list = []
@@ -242,9 +255,9 @@ if __name__ == '__main__':
         component_counts_ap = np.zeros(3)
         component_counts_pv = np.zeros(3)
 
-        component_counts_nc = PCA_component_counts(p_key_patch_nc, PCA_nc, PCA_nc_foreground, backbone_nc)
-        component_counts_ap = PCA_component_counts(p_key_patch_ap, PCA_ap, PCA_ap_foreground, backbone_ap)
-        component_counts_pv = PCA_component_counts(p_key_patch_pv, PCA_pv, PCA_pv_foreground, backbone_pv)
+        component_counts_nc = PCA_component_counts(p_key_patch_nc, PCA_nc, PCA_nc_salient, backbone_nc)
+        component_counts_ap = PCA_component_counts(p_key_patch_ap, PCA_ap, PCA_ap_salient, backbone_ap)
+        component_counts_pv = PCA_component_counts(p_key_patch_pv, PCA_pv, PCA_pv_salient, backbone_pv)
 
         component_fractions_nc = np.zeros(3)
         component_fractions_ap = np.zeros(3)
