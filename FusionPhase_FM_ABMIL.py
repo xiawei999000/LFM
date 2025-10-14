@@ -418,7 +418,7 @@ if __name__ == '__main__':
     phase_list = ['arterial-phase', 'portal-venous', 'non-contrast']
 
     label_obj_list = ['MVI', 'PathologicalGrade']
-    # 读取每个标签数据
+
     labels_dict = {}
     for label_name in label_obj_list:
         label_path = os.path.join(data_folder_path, 'HCC_' + label_name + '.bin')
@@ -517,3 +517,4 @@ if __name__ == '__main__':
                 optimizer_ft, CosineAnnealingLR_scheduler, batch_size,
                 learning_rate, epoch, work_dir, log_path, log_modelling, index_record, label_obj_list)
     index_record = ind_rec
+
