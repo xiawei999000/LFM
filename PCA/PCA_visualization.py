@@ -39,6 +39,33 @@ def salient_obtain(pca_features_ns):
 
     return salient
 
+def channels_change(PCA_map):
+    r, g, b = PCA_map.split()
+    # Try different display effects.
+    PCA_map = Image.merge("RGB", (g, r, b))
+    return PCA_map
+
+def dominant_rgb_regions(img: Image.Image):
+    img = img.convert("RGB")
+    arr = np.asarray(img, dtype=np.uint8)  # [H, W, 3]
+
+    black_mask = (arr[..., 0] == 0) & (arr[..., 1] == 0) & (arr[..., 2] == 0)
+
+    # 0=R, 1=G, 2=B
+    labels = np.argmax(arr, axis=2).astype(np.uint8)
+
+    labels[black_mask] = 0
+
+    viz = np.zeros_like(arr, dtype=np.uint8)
+
+    not_black = ~black_mask
+    viz[not_black & (labels == 0)] = [255, 0, 0]
+    viz[not_black & (labels == 1)] = [0, 255, 0]
+    viz[not_black & (labels == 2)] = [0, 0, 255]
+
+    viz_img = Image.fromarray(viz, mode="RGB")
+    return viz_img
+
 def PCA_visualization(image, pca, pca_salient, backbone):
 
     p_patch = T.ToTensor()(image)
@@ -105,7 +132,9 @@ def PCA_visualization(image, pca, pca_salient, backbone):
     ct_image_windowed_pil_flipped = ct_image_windowed_pil_flipped.resize((128, 128), Image.LANCZOS)
     resized_pca_nc_embeddings_img_flipped = resized_pca_nc_embeddings_img_flipped.resize((128, 128), Image.LANCZOS)
 
-    return ct_image_windowed_pil_flipped, resized_pca_nc_embeddings_img_flipped
+    dominant_pca_rgb_regions = dominant_rgb_regions(resized_pca_nc_embeddings_img_flipped)
+
+    return ct_image_windowed_pil_flipped, resized_pca_nc_embeddings_img_flipped, dominant_pca_rgb_regions
 
 
 def PCA_key_patches(patch_ori_list, backbone):
@@ -268,10 +297,21 @@ if __name__ == '__main__':
         p_key_patch_ap = p_key_patches_ap[index]
         p_key_patch_pv = p_key_patches_pv[index]
 
-        CT_ori_nc, PCA_map_nc = PCA_visualization(p_key_patch_nc, PCA_nc, PCA_nc_salient, backbone_nc)
-        CT_ori_ap, PCA_map_ap = PCA_visualization(p_key_patch_ap, PCA_ap, PCA_ap_salient, backbone_ap)
-        CT_ori_pv, PCA_map_pv = PCA_visualization(p_key_patch_pv, PCA_pv, PCA_pv_salient, backbone_pv)
+        CT_ori_nc, PCA_map_nc, dominant_pca_rgb_nc = PCA_visualization(p_key_patch_nc, PCA_nc, PCA_nc_salient, backbone_nc)
+        CT_ori_ap, PCA_map_ap, dominant_pca_rgb_ap = PCA_visualization(p_key_patch_ap, PCA_ap, PCA_ap_salient, backbone_ap)
+        CT_ori_pv, PCA_map_pv, dominant_pca_rgb_pv = PCA_visualization(p_key_patch_pv, PCA_pv, PCA_pv_salient, backbone_pv)
 
+        # # try different display effects
+        # PCA_map_nc = channels_change(PCA_map_nc)
+        # dominant_pca_rgb_nc = channels_change(dominant_pca_rgb_nc)
+        #
+        # PCA_map_ap = channels_change(PCA_map_ap)
+        # dominant_pca_rgb_ap = channels_change(dominant_pca_rgb_ap)
+        #
+        # PCA_map_pv = channels_change(PCA_map_pv)
+        # dominant_pca_rgb_pv = channels_change(dominant_pca_rgb_pv)
+
+        # masks
         p_key_patch_nc_mask = p_key_patches_nc_mask[index]
         p_key_patch_ap_mask = p_key_patches_ap_mask[index]
         p_key_patch_pv_mask = p_key_patches_pv_mask[index]
@@ -280,28 +320,38 @@ if __name__ == '__main__':
         p_key_patch_ap_mask = np.flipud(p_key_patch_ap_mask)
         p_key_patch_pv_mask = np.flipud(p_key_patch_pv_mask)
 
-        fig, axes = plt.subplots(3, 3, figsize=(15, 15))
+        #
+        fig, axes = plt.subplots(3, 3, figsize=(15, 15))  # 15,25
 
+        # nc
         axes[0, 0].imshow(CT_ori_nc, cmap='gray')
         axes[0, 0].set_title('CT_ori_nc', fontsize=14, fontweight='bold')
         axes[0, 1].imshow(PCA_map_nc)
         axes[0, 1].set_title('PCA_map_nc', fontsize=14, fontweight='bold')
-        axes[0, 2].imshow(p_key_patch_nc_mask)
-        axes[0, 2].set_title('mask', fontsize=14, fontweight='bold')
+        axes[0, 2].imshow(dominant_pca_rgb_nc)
+        axes[0, 2].set_title('dominant_pca_rgb_nc', fontsize=14, fontweight='bold')
+        axes[0, 3].imshow(p_key_patch_nc_mask)
+        axes[0, 3].set_title('mask', fontsize=14, fontweight='bold')
 
+        # ap
         axes[1, 0].imshow(CT_ori_ap, cmap='gray')
         axes[1, 0].set_title('CT_ori_ap', fontsize=14, fontweight='bold')
         axes[1, 1].imshow(PCA_map_ap)
         axes[1, 1].set_title('PCA_map_ap', fontsize=14, fontweight='bold')
-        axes[1, 2].imshow(p_key_patch_ap_mask)
-        axes[1, 2].set_title('mask', fontsize=14, fontweight='bold')
+        axes[1, 2].imshow(dominant_pca_rgb_ap)
+        axes[1, 2].set_title('dominant_pca_rgb_ap', fontsize=14, fontweight='bold')
+        axes[1, 3].imshow(p_key_patch_ap_mask)
+        axes[1, 3].set_title('mask', fontsize=14, fontweight='bold')
 
+        # pp
         axes[2, 0].imshow(CT_ori_pv, cmap='gray')
-        axes[2, 0].set_title('CT_ori_pp', fontsize=14, fontweight='bold')
+        axes[2, 0].set_title('CT_ori_pv', fontsize=14, fontweight='bold')
         axes[2, 1].imshow(PCA_map_pv)
-        axes[2, 1].set_title('PCA_map_pp', fontsize=14, fontweight='bold')
-        axes[2, 2].imshow(p_key_patch_pv_mask)
-        axes[2, 2].set_title('mask', fontsize=14, fontweight='bold')
+        axes[2, 1].set_title('PCA_map_pv', fontsize=14, fontweight='bold')
+        axes[2, 2].imshow(dominant_pca_rgb_pv)
+        axes[2, 2].set_title('dominant_pca_rgb_pv', fontsize=14, fontweight='bold')
+        axes[2, 3].imshow(p_key_patch_pv_mask)
+        axes[2, 3].set_title('mask', fontsize=14, fontweight='bold')
 
         fig.text(0.5, 0.02, f'ID = {p_id}', ha='center', fontsize=18, fontweight='bold')
 
@@ -317,8 +367,5 @@ if __name__ == '__main__':
 
         output_file_path = output_jpgs_folder + f'{p_id}.jpg'
         plt.savefig(output_file_path, dpi=300)
-
-
-
 
 
